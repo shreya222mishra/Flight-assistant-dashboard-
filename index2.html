@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Flight Delay Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Required Libraries -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet"/>
+
+    <!-- ✅ Deck.gl -->
+    <script src="https://unpkg.com/deck.gl@8.9.29/dist.min.js"></script>
+    <script src="https://unpkg.com/@deck.gl/mapbox@8.9.29/dist.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        header {
+            background: #003366;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 1rem;
+        }
+
+        .vis-section {
+            margin: 2rem auto;
+            max-width: 1200px;
+            padding: 1rem;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        button {
+            margin: 0 10px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #0055aa;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #003f7f;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🛫 Flight Delay & Cancellation Dashboard</h1>
+</header>
+
+
+<div class="controls floating-controls">
+    <button onclick="toggleDarkMode()">🌙 Toggle Dark Mode</button>
+</div>
+
+
+<div class="nav-controls">
+    <button id="leftArrow">⬅</button>
+    <div class="tab-indicator">
+        <span class="tab-dot active"></span>
+        <span class="tab-dot"></span>
+        <span class="tab-dot"></span>
+        <span class="tab-dot"></span>
+    </div>
+    <button id="rightArrow">➡</button>
+</div>
+
+
+<div class="horizontal-scroll-wrapper" id="scrollContainer">
+
+    <!-- Visualization Sections -->
+    <div class="vis-section" id="vis1" style="position: relative;">
+        <h2>1️⃣ Airline Route Delays</h2>
+
+        <!-- 🟪 Instruction Card -->
+        <div id="instruction-card" style="
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 20;
+    padding: 20px;
+    background: linear-gradient(135deg, #9c27b0, #283593);
+    border-radius: 20px;
+    color: white;
+    width: 550px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.3);">
+            <h2 style="margin-top: 0;">✈️ Route Delays Across Airlines</h2>
+            <p>Select <strong>2 airports</strong> to view the delays amongst different airline carriers for this
+                route.<br>
+                <strong>REMEMBER!</strong> Thicker = More Delay.<br>
+                <span style="font-weight: bold; display: block; margin-top: 8px;">
+      The most delayed carrier is highlighted in <span style="color: red;">RED</span>.
+    </span></p>
+
+            <div style="margin-top: 15px; color: rgb(249, 234, 234);">
+                <div><span class="color-box" style="background:#8a41ff;"></span> American Airlines</div>
+                <div><span class="color-box" style="background:#358cff;"></span> Delta Airlines</div>
+                <div><span class="color-box" style="background:#e44cbe;"></span> United Airlines</div>
+            </div>
+
+            <button id="close-instruction"
+                    style="margin-top: 16px; padding: 6px 14px; border: none; background: white; color: #283593; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                Got it!
+            </button>
+        </div>
+
+        <!-- 🟦 Airline Legend -->
+        <div class="legend" style="
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 10px 16px;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 20px;
+    font-size: 16px;
+    z-index: 10;">
+            <div><span class="color-box" style="background:#8a41ff;"></span> American Airlines</div>
+            <div><span class="color-box" style="background:#358cff;"></span> Delta Airlines</div>
+            <div><span class="color-box" style="background:#e44cbe;"></span> United Airlines</div>
+        </div>
+
+        <!-- 🗺️ SVG Map -->
+        <svg id="route-map" width="1000" height="1000" style="display: block; margin: 0 auto;"></svg>
+    </div>
+
+
+    <!-- ❗ Placeholder for dynamically loaded seasonal.html -->
+   <!-- This placeholder will be replaced -->
+<div class="vis-section" id="vis2">
+    <!-- Leave empty or just keep the container -->
+     
+  </div>
+  
+
+    <div class="vis-section" id="vis3" style="position: relative;">
+        <h2>Cancellation Breakdown</h2>
+
+        <!-- ✅ Instruction Card Only for vis3 -->
+        <div id="instruction-card-vis3" style="
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 20;
+    padding: 20px;
+    background: linear-gradient(135deg, #9c27b0, #283593);
+    border-radius: 20px;
+    color: white;
+    width: 550px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.3);">
+
+            <h2 style="margin-top: 0;">📊 Cancellation Breakdown Guide</h2>
+            <p>
+                Use the dropdowns to filter flights by <strong>Origin State</strong>, <strong>Destination State</strong>,
+                and <strong>Month</strong>.<br>
+                The map shows the cancellation intensity between states, and the pie chart explains for <strong>which</strong>
+                airline the cancellations happened.
+            </p>
+
+            <p style="margin-top: 10px;"><strong>💡 Tip:</strong> Hover on states for exact cancellation rates. 
+               
+
+            <button id="close-instruction-vis3"
+                    style="margin-top: 16px; padding: 6px 14px; border: none; background: white; color: #283593; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                Got it!
+            </button>
+        </div>
+
+        <!-- Filters -->
+    <!-- Updated Filters with Styling Hook -->
+<div class="filter-bar">
+    <div class="filter-group">
+      <label for="originState">Origin:</label>
+      <select id="originState"></select>
+    </div>
+    <div class="filter-group">
+      <label for="destState">Destination:</label>
+      <select id="destState"></select>
+    </div>
+    <div class="filter-group">
+      <label for="month">Month:</label>
+      <select id="month"></select>
+    </div>
+  </div>
+  
+
+        <!-- Map & Charts -->
+        <div id="deck-map" style="height: 800px;"></div>
+
+        <div id="pie-chart-container">
+            <div id="pie-chart"></div>
+            <div id="pie-legend"></div>
+        </div>
+
+        <div class="tooltip"
+             style="position:absolute;display:none;background:#fff;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:14px;"></div>
+    </div>
+
+
+    <div class="vis-section" id="vis4">
+        <h2> U.S. Delay Map</h2>
+        <div id="instruction-card-vis4" style="
+        position: relative;
+        top: 20px;
+        left: 20px;
+        z-index: 20;
+        padding: 20px;
+        background: linear-gradient(135deg, #9c27b0, #283593);
+        border-radius: 20px;
+        color: white;
+        width: 550px;
+        box-shadow: 0 12px 24px rgba(0,0,0,0.3);">
+            <h3>How to Use</h3>
+            <p>
+              Use the interactive chart to explore delays by airport and season.
+              Hover on segments to view specific delay causes, and use the filter dropdowns to adjust your view by time or location.
+            </p>
+            <p>
+              💡 Tip: You can compare airports side-by-side by selecting them on the map.
+            </p>
+            <button id="close-instruction-vis4" ...>Got it!</button>
+
+          </div>
+          
+        <div class="container">
+            <button class="back-button" onclick="showMapView()" style="display: none;">← Back to Map</button>
+            <label for="cause-select">Select Delay Cause:</label>
+            <select id="cause-select">
+                <option value="">-- Select --</option>
+                <option value="carrier_ct">Carrier Delay</option>
+                <option value="weather_ct">Weather Delay</option>
+                <option value="nas_ct">NAS Delay</option>
+                <option value="security_ct">Security Delay</option>
+                <option value="late_aircraft_ct">Late Aircraft</option>
+            </select>
+            <div id="legend"></div>
+
+            <!-- ✅ Use this ID consistently -->
+            <div id="map-wrapper" style="background-color: #f4f4f4;">
+                <div id="map" style="width: 100%; height: 600px;"></div>
+            </div>
+              <div id="charts" class="chart-container fixed-vis" style="display: none;"></div>
+<div id="tooltip"></div>
+</div>
+        </div>
+
+
+    </div>
+</div>
+<script>
+    document.body.classList.remove("dark-mode");
+</script>
+<!-- Visualization Scripts -->
+<script src="js/vis1.js"></script>
+<script src="js/main.js"></script>
+<script src="js/map.js"></script>
+
+<!-- Utility Functions -->
+<script>
+    let darkModeEnabled = false;
+
+    function toggleDarkMode() {
+        document.body.classList.toggle("dark-mode");
+        darkModeEnabled = !darkModeEnabled;
+
+        if (map) {
+            const newStyle = darkModeEnabled
+                ? "mapbox://styles/mapbox/dark-v10"
+                : "mapbox://styles/mapbox/light-v10";
+            map.setStyle(newStyle);
+
+            // Wait for style load before re-adding the deck overlay
+            map.once("styledata", () => {
+                if (deckgl) {
+                    map.addControl(deckgl);  // reattach overlay after style change
+                }
+            });
+        }
+    }
+</script>
+
+
+<!-- ✅ Dynamically Load Seasonal Visualization -->
+<script>
+
+    fetch('seasonal.html')
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const seasonalSection = doc.querySelector('#vis2');
+
+            if (seasonalSection) {
+                document.getElementById('vis2').innerHTML = seasonalSection.innerHTML;
+
+                // Load any <script> tags inside seasonal.html
+                const scripts = doc.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    if (oldScript.src) {
+                        newScript.src = oldScript.src;
+                    } else {
+                        newScript.textContent = oldScript.textContent;
+                    }
+                    document.body.appendChild(newScript);
+                });
+            } else {
+                console.error('❌ seasonal.html does not contain a #vis2 section.');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Failed to load seasonal.html:', error);
+            document.getElementById('vis2').innerHTML = '<p style="color: red;">Failed to load seasonal visualization.</p>';
+        });
+</script>
+<script>
+    const scrollContainer = document.getElementById('scrollContainer');
+    const leftArrow = document.getElementById('leftArrow');
+    const rightArrow = document.getElementById('rightArrow');
+    const tabs = document.querySelectorAll('.tab-dot');
+
+    const sectionWidth = window.innerWidth;
+
+    leftArrow.onclick = () => scrollContainer.scrollBy({left: -sectionWidth, behavior: 'smooth'});
+    rightArrow.onclick = () => scrollContainer.scrollBy({left: sectionWidth, behavior: 'smooth'});
+
+    scrollContainer.addEventListener('scroll', () => {
+        const index = Math.round(scrollContainer.scrollLeft / sectionWidth);
+        tabs.forEach((dot, i) => dot.classList.toggle('active', i === index));
+    });
+</script>
+
+</body>
+</html>

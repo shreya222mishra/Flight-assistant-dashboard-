@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Seasonal Airline Delay Heatmap</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <style>
+    body {
+      font-family: "Dosis", Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #34495e;
+    }
+
+    .layout-container {
+      display: flex;
+      flex-direction: row;
+      height: 1000px;
+      width: 1000px;
+      position: relative;
+    }
+
+    #map {
+      flex: 1;
+      background: white;
+    }
+
+    .sidebar {
+      width: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding-top: 40px;
+    }
+
+    .radio-inputs-vertical {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .bottom-bar {
+      position: absolute;
+      bottom: 0;
+      margin-bottom: 15px;
+      width: 100%;
+      padding: 20px 0 10px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .value {
+      text-align: center;
+      font-weight: bold;
+      font-size: 2.2em;
+      margin: 4px auto 15px auto;
+      letter-spacing: -0.07em;
+      text-shadow: white 2px 2px 2px;
+    }
+
+    input[type="range"] {
+      background-color: #c1d4e0;
+      width: 1000px;
+      height: 5px;
+      border-radius: 5px;
+      outline: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      background-color: #17327e;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid white;
+      cursor: pointer;
+      transition: 0.3s ease-in-out;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background-color: white;
+      border: 2px solid #021c70;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(1.3);
+    }
+
+    .radio-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+      min-height: 80px;
+      border-radius: 0.5rem;
+      background-color: #fff;
+      border: 2px solid #b5bfd9;
+      transition: 0.15s ease;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .radio-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    .radio-input {
+      clip: rect(0 0 0 0);
+      clip-path: inset(100%);
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+      white-space: nowrap;
+      width: 1px;
+    }
+
+    .radio-input:checked + .radio-tile {
+      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+      color: white;
+      border: none;
+    }
+
+    input[value="AA"]:checked + .radio-tile { background-color: #8a41ff; }
+    input[value="DL"]:checked + .radio-tile { background-color: #358cff; }
+    input[value="UA"]:checked + .radio-tile { background-color: #e44cbe; }
+
+  
+    #tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 6px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<div id="vis2" class="vis-section" style="position: relative;">
+  <h2>2️⃣ Seasonal Delay Heatmap</h2>
+
+
+
+
+  
+    <div class="layout-container" style="display: flex; flex-direction: column; height: 100vh; width: 100vw; position: relative;">
+      <div style="display: flex; flex-direction: row; flex-grow: 1;">
+        <!-- SVG map in center -->
+        <div style="flex-grow: 1; position: relative;">
+          <!-- Instruction card on top of map -->
+          <div id="instruction-card-vis2" class="card" style="position: absolute; top: 20px; left: 20px; z-index: 10;">
+            <h2>🗺️ Seasonal Delay Heatmap Guide</h2>
+            <p>This map shows the probability of flight delays by airport across different seasons.<br>
+            Hover over an airport to view its delay probability and explore seasonal trends.</p>
+            <p><strong>💡 Tip:</strong> Use this view to understand which airports are more prone to delays in specific seasons and plan flights accordingly.</p>
+            <button onclick="document.getElementById('instruction-card-vis2').style.display='none'"
+              style="margin-top: 16px; padding: 6px 14px; border: none; background: white; color: #283593; border-radius: 8px; font-weight: bold; cursor: pointer;">
+              Got it!
+            </button>
+          </div>
+          <svg id="map" style="width: 100%; height: 100%;"></svg>
+        </div>
+        <!-- Sidebar with airline selector -->
+        <div class="airline-options">
+          <label class="airline-box airline-aa" data-value="AA">✈️ American</label>
+          <label class="airline-box airline-dl" data-value="DL">✈️ Delta</label>
+          <label class="airline-box airline-ua" data-value="UA">✈️ United</label>
+        </div>
+        <input type="radio" name="airline" value="AA" id="radio-aa" checked>
+        <input type="radio" name="airline" value="DL" id="radio-dl">
+        <input type="radio" name="airline" value="UA" id="radio-ua">
+        
+        </div>
+      </div>
+      <!-- Bottom bar with month slider -->
+      <div class="bottom-bar">
+        <div id="month-value" class="value">January</div>
+        <input type="range" min="1" max="12" step="1" value="1" id="month-slider" />
+      </div>
+    </div>
+    
+
+    <div class="map-wrapper">
+      <svg id="map"></svg>
+    </div>
+    
+    <div id="tooltip"></div>
+    <div class="sidebar">
+      <div class="radio-inputs-vertical">
+        <label>
+          <input class="radio-input" type="radio" name="airline" value="AA" checked>
+          <span class="radio-tile"><span class="radio-icon">✈️</span><span class="radio-label">American</span></span>
+        </label>
+        <label>
+          <input class="radio-input" type="radio" name="airline" value="DL">
+          <span class="radio-tile"><span class="radio-icon">✈️</span><span class="radio-label">Delta</span></span>
+        </label>
+        <label>
+          <input class="radio-input" type="radio" name="airline" value="UA">
+          <span class="radio-tile"><span class="radio-icon">✈️</span><span class="radio-label">United</span></span>
+        </label>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <div id="month-value" class="value">January</div>
+      <input type="range" min="1" max="12" step="1" value="1" id="month-slider" />
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/seasonal_probability_map.js"></script>
+<script src="js/render_seasonal_heatmap.js"></script>
+<script src="js/line_chart_popup.js"></script>
+
+<!-- Show instruction card only when vis2 is visible -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const instructionCard = document.getElementById("instruction-card-vis2");
+    const vis2Section = document.getElementById("vis2");
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          instructionCard.style.display = entry.isIntersecting ? "block" : "none";
+        });
+      },
+      {
+        root: null,
+        threshold: 0.5
+      }
+    );
+
+    observer.observe(vis2Section);
+  });
+</script>
+<script>
+  document.querySelectorAll('.airline-box').forEach(box => {
+    box.addEventListener('click', () => {
+      // Clear previous
+      document.querySelectorAll('.airline-box').forEach(b => b.classList.remove('selected'));
+      box.classList.add('selected');
+
+      // Set corresponding radio value
+      const value = box.getAttribute('data-value');
+      document.getElementById(`radio-${value.toLowerCase()}`).checked = true;
+
+      // Trigger change event if needed
+      document.getElementById(`radio-${value.toLowerCase()}`).dispatchEvent(new Event('change'));
+    });
+  });
+
+  // Pre-select default
+  document.querySelector('.airline-box[data-value="AA"]').classList.add('selected');
+</script>
+
+</body>
+</html>

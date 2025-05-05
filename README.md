@@ -1,15 +1,15 @@
 
-```markdown
+```
 ✈️ Flight Delay & Cancellation Dashboard
 
 This project is an interactive web dashboard designed to help users explore U.S. flight delay and cancellation patterns using historical data (2018–2023). It features four coordinated visualizations built with D3.js and Deck.gl, allowing users to inspect delays by airline, route, season, and cause.
 
 🚀 Live Demo
-- **Deployed Site**: [https://flightdelay-cancellation-dashboard.netlify.app](https://flightdelay-cancellation-dashboard.netlify.app)
-- **Demo Video**: [Watch on YouTube](https://www.youtube.com/watch?v=dxitPI7sI2g)
+- Deployed Site: [https://flightdelay-cancellation-dashboard.netlify.app](https://flightdelay-cancellation-dashboard.netlify.app)
+- Demo Video: [Watch on YouTube](https://www.youtube.com/watch?v=dxitPI7sI2g)
 
 📁 Project Structure
-```
+
 
 root/
 ├── index.html             # Main HTML file linking all visualizations
@@ -25,7 +25,7 @@ root/
 ├── assets/                # Icons or background images
 └── README.md
 
-````
+
 
 🧑‍💻 Run Locally
 
@@ -35,22 +35,22 @@ To run the dashboard on your local machine:
 ```bash
 git clone https://github.com/your-username/flight-delay-dashboard.git
 cd flight-delay-dashboard
-````
+
 2. Start a Local Server
 
 Run this command from inside the project folder:
 
 ```bash
 python3 -m http.server 8888
-```
+
 
 3. Open in Browser
 
 Once the server is running, open your browser and navigate to:
 
-```
+
 http://localhost:8888
-```
+
 
 You should now see the dashboard and be able to interact with all visualizations.
 
